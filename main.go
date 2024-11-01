@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/bson"
 
 )
 type Todo struct {
@@ -17,6 +18,9 @@ type Todo struct {
 	Title string `json:"title"`
 	Completed bool `json:"completed"`
 }
+
+var collection *mongo.Collection 
+
 func main() {
 
 	err := godotenv.Load(".env")
@@ -41,8 +45,7 @@ func main() {
 
 	fmt.Println("Connected to MONGODB ATLAS")
 
-	collection := client.Database("golang_db").Collection("todos")
-	fmt.Println(collection)
+	collection = client.Database("golang_db").Collection("todos")
 
 	app := fiber.New()
 
@@ -69,11 +72,68 @@ func getTodos(c *fiber.Ctx) error {
 }
 
 func createTodo(c *fiber.Ctx) error {
-	return c.SendString("Create Todo")
+	// create new todo from request body
+	todo := new(Todo)
+	if err := c.BodyParser(todo); err != nil {
+		return err
+	}
+
+	if todo.Title == "" { 
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Title is required",
+		})
+	}
+	// insert into db
+	insertRes, err := collection.InsertOne(context.Background(), todo) 
+
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Something went wrong",
+			"errorDetail": err.Error(),
+		})
+	}
+	todo.ID = insertRes.InsertedID.(primitive.ObjectID)
+
+	return c.Status(201).JSON(fiber.Map{
+		"success": true,
+		"message": "Todo created successfully",
+		"data": todo,
+	})
+
 }
 
 func deleteTodo(c *fiber.Ctx) error {
-	return c.SendString("Delete Todo")
+
+	// get id from url params
+	id := c.Params("id")
+
+	objID, err := primitive.ObjectIDFromHex(id)
+
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid ID",
+		})
+	}
+	filter := bson.M{"_id": objID}
+	fmt.Printf("filter: %v\n", filter)
+	res, err := collection.DeleteOne(context.Background(), filter)
+
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Something went wrong",
+			"errorDetail": err.Error(),
+		})
+	}
+
+	fmt.Print(res.DeletedCount, res)
+	if res.DeletedCount == 0 {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "Todo not found",
+		})
+	}
+
+	return c.JSON(fiber.Map{ "success": true, "message": "Todo deleted successfully" })
+
 }
 
 func updateTodo(c *fiber.Ctx) error {
