@@ -1,25 +1,25 @@
 package main
 
 import (
-	"fmt"
+	"context"
+	// "fmt"
 	"log"
 	"os"
-	"context"
-	"github.com/joho/godotenv"
+	"todo-list/controllers/auth"
+	"todo-list/controllers/todo"
+
 	"github.com/gofiber/fiber/v2"
+	"github.com/joho/godotenv"
+
+	// "go.mongodb.org/mongo-driver/bson"
+	// "go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/bson"
-
+	// "./controllers/auth"
 )
-type Todo struct {
-	ID primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
-	Title string `json:"title"`
-	Completed bool `json:"completed"`
-}
 
-var collection *mongo.Collection 
+// var todoCollection *mongo.Collection 
+// var userCollection *mongo.Collection
 
 func main() {
 
@@ -28,31 +28,36 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
+	// connect to mongodb not the any collection but only a db 
 	MONGODB_URI := os.Getenv("MONGODB_URI")
 	clientOptions := options.Client().ApplyURI(MONGODB_URI)
 	client, err := mongo.Connect(context.Background(), clientOptions)
+
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer client.Disconnect(context.Background())
-
+	
 	err = client.Ping(context.Background(), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Connected to MONGODB ATLAS")
-
-	collection = client.Database("golang_db").Collection("todos")
+	client.Database("golang_db")
 
 	app := fiber.New()
 
-	app.Get("/api/todos", getTodos)
-	app.Post("/api/todos", createTodo)
-	app.Patch("/api/todos/:id", updateTodo)
-	app.Delete("/api/todos/:id", deleteTodo)
+
+	app.Post("/api/auth/login", auth.LoginUser)
+	app.Post("/api/auth/register", auth.RegisterUser)
+
+	app.Get("/api/todos", auth.IsAuthenticated, todo.GetTodos)
+	app.Get("/api/todos/:id", auth.IsAuthenticated, todo.GetTodoById)
+	app.Post("/api/todos", auth.IsAuthenticated, todo.CreateTodo)
+	app.Patch("/api/todos/:id", auth.IsAuthenticated, todo.UpdateTodo)
+	app.Delete("/api/todos/:id", auth.IsAuthenticated, todo.DeleteTodo)
+
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -66,76 +71,3 @@ func main() {
 	log.Fatal(app.Listen("0.0.0.0:" + port))
 }
 
-
-func getTodos(c *fiber.Ctx) error {
-	return c.SendString("All Todos")
-}
-
-func createTodo(c *fiber.Ctx) error {
-	// create new todo from request body
-	todo := new(Todo)
-	if err := c.BodyParser(todo); err != nil {
-		return err
-	}
-
-	if todo.Title == "" { 
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Title is required",
-		})
-	}
-	// insert into db
-	insertRes, err := collection.InsertOne(context.Background(), todo) 
-
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error": "Something went wrong",
-			"errorDetail": err.Error(),
-		})
-	}
-	todo.ID = insertRes.InsertedID.(primitive.ObjectID)
-
-	return c.Status(201).JSON(fiber.Map{
-		"success": true,
-		"message": "Todo created successfully",
-		"data": todo,
-	})
-
-}
-
-func deleteTodo(c *fiber.Ctx) error {
-
-	// get id from url params
-	id := c.Params("id")
-
-	objID, err := primitive.ObjectIDFromHex(id)
-
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid ID",
-		})
-	}
-	filter := bson.M{"_id": objID}
-	fmt.Printf("filter: %v\n", filter)
-	res, err := collection.DeleteOne(context.Background(), filter)
-
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error": "Something went wrong",
-			"errorDetail": err.Error(),
-		})
-	}
-
-	fmt.Print(res.DeletedCount, res)
-	if res.DeletedCount == 0 {
-		return c.Status(404).JSON(fiber.Map{
-			"error": "Todo not found",
-		})
-	}
-
-	return c.JSON(fiber.Map{ "success": true, "message": "Todo deleted successfully" })
-
-}
-
-func updateTodo(c *fiber.Ctx) error {
-	return c.SendString("Update Todo")
-}
