@@ -1,7 +1,7 @@
 package main
 
 import (
-	"context"
+	// "context"
 	// "fmt"
 	"log"
 	"os"
@@ -13,8 +13,8 @@ import (
 
 	// "go.mongodb.org/mongo-driver/bson"
 	// "go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	// "go.mongodb.org/mongo-driver/mongo"
+	// "go.mongodb.org/mongo-driver/mongo/options"
 	// "./controllers/auth"
 )
 
@@ -29,9 +29,9 @@ func main() {
 	}
 
 	// connect to mongodb not the any collection but only a db 
-	MONGODB_URI := os.Getenv("MONGODB_URI")
-	clientOptions := options.Client().ApplyURI(MONGODB_URI)
-	client, err := mongo.Connect(context.Background(), clientOptions)
+	// MONGODB_URI := os.Getenv("MONGODB_URI")
+	// clientOptions := options.Client().ApplyURI(MONGODB_URI)
+	// client, err := mongo.Connect(context.Background(), clientOptions)
 
 
 	if err != nil {
@@ -39,12 +39,12 @@ func main() {
 	}
 
 	
-	err = client.Ping(context.Background(), nil)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// err = client.Ping(context.Background(), nil)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	client.Database("golang_db")
+    // collection := 	client.Database("golang_db")
 
 	app := fiber.New()
 

@@ -30,28 +30,59 @@ func IsAuthenticated(c *fiber.Ctx) error {
 }
 
 
+// func GenerateJwtToken(email string) (string, error) {
+
+// 	token := jwt.New(jwt.SigningMethodHS256)
+// 	claims := token.Claims.(jwt.MapClaims)
+// 	if claims == nil {
+// 		claims = jwt.MapClaims{}
+// 		token.Claims = claims
+// 	}
+// 	claims["email"] = email
+// 	claims["exp"] = time.Now().Add(time.Hour * 72).Unix()
+
+// 	secret := os.Getenv("JWT_SECRET")
+// 	if secret == "" {
+// 		return "", fmt.Errorf("JWT_SECRET environment variable not set")
+// 	}
+// 	t, err := token.SignedString([]byte(secret))
+	
+// 	if err != nil {
+// 		return "", err
+// 	}
+
+// 	return t, nil
+// }
+
 func GenerateJwtToken(email string) (string, error) {
-
-	token := jwt.New(jwt.SigningMethodHS256)
-	claims := token.Claims.(jwt.MapClaims)
-	if claims == nil {
-		claims = jwt.MapClaims{}
-		token.Claims = claims
-	}
-	claims["email"] = email
-	claims["exp"] = time.Now().Add(time.Hour * 72).Unix()
-
+	// Create a new token object, specifying the signing method and the claims
+	
+	// Retrieve the secret key from environment variables
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		return "", fmt.Errorf("JWT_SECRET environment variable not set")
 	}
-	t, err := token.SignedString([]byte(secret))
-	
-	if err != nil {
-		return "", err
-	}
 
-	return t, nil
+	// // Sign the token with the secret key
+	// t, err := token.SignedString([]byte(secret))
+	// if err != nil {
+	// 	return "", err
+	// }
+
+	// return t, nil
+
+	// Create a new token object, specifying signing method and the claims
+// you would like it to contain.
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"email": email,
+		"exp":   time.Now().Add(time.Hour * 72).Unix(),
+	})
+
+	// Sign and get the complete encoded token as a string using the secret
+	tokenString, err := token.SignedString([]byte(secret))
+
+	fmt.Println(tokenString, err)
+	return tokenString, err
 }
 
 func VerifyJwtToken(tokenString string) (*jwt.Token, error) {
@@ -72,7 +103,7 @@ func ExtractClaims(tokenString string) (jwt.MapClaims, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Print(err)
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		return nil, fmt.Errorf("Invalid token claims")
@@ -83,16 +114,19 @@ func ExtractClaims(tokenString string) (jwt.MapClaims, error) {
 
 func ExtractEmail(tokenString string) (string, error) {
 	claims, err := ExtractClaims(tokenString)
-
+	
+	fmt.Print(err)
 	if err != nil {
 		return "", err
 	}
+	// fmt.Print(claims)
+	//map[email:krcpr080@gmail.com exp:1.730888215e+09]
+	email , ok := claims["email"].(string)
 
-	email, ok := claims["email"].(string)
 	if !ok {
 		return "", fmt.Errorf("Invalid email claim")
 	}
-
+	// fmt.Print(email)
 	return email, nil
 }
 

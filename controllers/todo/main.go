@@ -3,12 +3,13 @@ package todo
 import (
 	"context"
 	"fmt"
+	"todo-list/controllers/auth"
+	"todo-list/db"
+
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"todo-list/controllers/auth"
-
 )
 type Todo struct {
 	ID primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
@@ -24,13 +25,14 @@ var todoCollection *mongo.Collection
 func GetTodos(c *fiber.Ctx) error {
 
 	email, _err := auth.ExtractEmail(c.Get("Authorization"))
+	fmt.Print(email)
 	if _err != nil {
-		fmt.Print("No email found", _err)
+		fmt.Print("No email found ", _err)
 		return c.Status(401).JSON(fiber.Map{
 			"error": "Unauthorized",
 		})
 	}
-
+	todoCollection = db.ConnectToCollection("todos")
 	cursor, err := todoCollection.Find(context.Background(), bson.M{ "email": email })
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
@@ -158,6 +160,7 @@ func GetTodoById(c *fiber.Ctx) error {
 
 	var todo Todo
 
+	todoCollection = db.ConnectToCollection("todos")
 	err = todoCollection.FindOne(context.Background(), filter).Decode(&todo)
 
 	if err != nil {
