@@ -24,16 +24,31 @@ var todoCollection *mongo.Collection
 
 func GetTodos(c *fiber.Ctx) error {
 
-	email, _err := auth.ExtractEmail(c.Get("Authorization"))
-	fmt.Print(email)
-	if _err != nil {
-		fmt.Print("No email found ", _err)
+	authHeader := c.Get("Authorization")
+	if authHeader == "" || len(authHeader) < 7 || authHeader[:7] != "Bearer " {
+		return c.Status(401).JSON(fiber.Map{
+			"error": "Unauthorized - Invalid auth header",
+		})
+	}
+
+	// Extract token by removing "Bearer " prefix
+	tokenString := authHeader[7:]
+	email, err := auth.ExtractEmail(tokenString)
+	if err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"error": "Unauthorized",
+			"details": err.Error(),
+		})
+	}
+
+	if err != nil {
+		fmt.Print("No email found ", err)
 		return c.Status(401).JSON(fiber.Map{
 			"error": "Unauthorized",
 		})
 	}
 	todoCollection = db.ConnectToCollection("todos")
-	cursor, err := todoCollection.Find(context.Background(), bson.M{ "email": email })
+	todoData, err := todoCollection.Find(context.Background(), bson.M{ "email": email })
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": "Something went wrong",
@@ -43,7 +58,7 @@ func GetTodos(c *fiber.Ctx) error {
 
 	var todos []Todo = make([]Todo, 0)
 
-	if err = cursor.All(context.Background(), &todos); err != nil {
+	if err = todoData.All(context.Background(), &todos); err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": "Something went wrong",
 			"errorDetail": err.Error(),
@@ -59,17 +74,22 @@ func GetTodos(c *fiber.Ctx) error {
 
 func CreateTodo(c *fiber.Ctx) error {
 	// create new todo from request body
-	email, _err := auth.ExtractEmail(c.Get("Authorization"))
+	authHeader := c.Get("Authorization")
+	if authHeader == "" || len(authHeader) < 7 || authHeader[:7] != "Bearer " {
+		return c.Status(401).JSON(fiber.Map{
+			"error": "Unauthorized - Invalid auth header",
+		})
+	}
+	email, err := auth.ExtractEmail(authHeader[7:])
 	fmt.Print(email)
-	if _err != nil {
+	if err != nil {
 		fmt.Print("No email")
 		return c.Status(401).JSON(fiber.Map{
 			"error": "Unauthorized",
 		})
 	}
 	// create new todo from request body with email 
-	// todo := &Todo{Email: email}
-	todo := new(Todo)
+	todo := &Todo{Email: email}
 	if err := c.BodyParser(todo); err != nil {
 		return err
 	}
@@ -87,7 +107,7 @@ func CreateTodo(c *fiber.Ctx) error {
 
 	}
 
-
+	todoCollection = db.ConnectToCollection("todos")
 
 	// insert into db
 	insertRes, err := todoCollection.InsertOne(context.Background(), todo) 
